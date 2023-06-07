@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Provider, useSubscription, useQuery, gql } from 'urql';
+import React from 'react';
+import { Provider } from 'urql';
 import client from './client';
-import Nodes from './Nodes';
-import Add from './Add';
+import Customers from './Customers';
 
 const Home = () => (
-  <div>
-    <Nodes />
-    <Add />
-  </div>
+  <Customers />
 );
 
 const App = () => (

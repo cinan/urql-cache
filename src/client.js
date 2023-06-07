@@ -1,48 +1,65 @@
-import { createClient, dedupExchange, fetchExchange, subscriptionExchange, gql } from 'urql';
+import { createClient, fetchExchange, gql } from 'urql';
 import { cacheExchange } from '@urql/exchange-graphcache';
-import { createClient as createWSClient } from 'graphql-ws'
+import { devtoolsExchange } from '@urql/devtools'
 
 const cache = cacheExchange({
   updates: {
-    Subscription: {
-      updatedNode: async ({ updatedNode }, args, cache) => {
-        console.log('incoming', updatedNode);
+    Mutation: {
+      updateCustomerWithNewCompany: (_, args, cache) => {
+        if (!args.companyId) return
 
-        const nodes = cache.resolve('Query', 'nodes')
+        // updateQuery method:
 
-        if (Array.isArray(nodes)) {
-          const nodeKey = cache.keyOfEntity(updatedNode)
+        // const query = gql`
+        //   query {
+        //     companies {
+        //       id
+        //     }
+        //   }
+        // `
+        //
+        // cache.updateQuery({ query }, data => {
+        //   data.companies.push({ __typename: 'Company', id: args.companyId });
+        //   return data;
+        // })
 
-          const index = nodes.findIndex(_nodeKey => _nodeKey === nodeKey)
+        // cache.link method:
+
+        const companies = cache.resolve('Query', 'companies')
+
+        if (Array.isArray(companies)) {
+          const company = { __typename: 'Company', id: args.companyId }
+          const index = companies.indexOf(cache.keyOfEntity(company))
 
           if (index === -1) {
-            nodes.push(updatedNode)
-            cache.link('Query', 'nodes', nodes)
+            companies.push(company)
+            cache.link('Query', 'companies', companies)
           }
         }
       }
-    },
+    }
   },
-});
+  optimistic: {
+    updateCustomerWithNewCompany: (args) => {
+      const optimistic = {
+        __typename: 'Customer',
+        id: args.id,
+        companyId: args.companyId
+      }
 
-const wsClient = createWSClient({
-  url: 'ws://localhost:1234/graphql'
-})
+      console.log('opt', optimistic);
+
+      return optimistic
+    }
+  }
+});
 
 const client = createClient({
   url: 'http://localhost:1234/graphql',
-  requestPolicy: 'cache-and-network',
   exchanges: [
-    dedupExchange,
+    devtoolsExchange,
     cache,
     fetchExchange,
-    subscriptionExchange({
-      forwardSubscription: operation => ({
-        subscribe: sink => ({
-          unsubscribe: wsClient.subscribe(operation, sink),
-        }),
-      }),
-    }),
   ],
 });
 

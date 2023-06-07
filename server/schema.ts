@@ -1,55 +1,57 @@
 import { makeExecutableSchema } from '@graphql-tools/schema'
-import { createPubSub } from 'graphql-yoga'
-
-const pubSub = createPubSub()
 
 const typeDefinitions = /* GraphQL */ `
   type Query {
-    nodes: [Node!]!
+    companies: [Company!]!
+    customers: [Customer!]!
   }
 
   type Mutation {
-    upsert(id: String!, name: String!): Node!
+    updateCustomerWithNewCompany(id: String!, companyId: String): Customer
   }
 
-  type Subscription {
-    updatedNode: Node!
-  }
-
-  type Node {
+  type Company {
     id: String!
-    name: String!
+  }
+
+  type Customer {
+    id: String!
+    companyId: String
   }
 `
 
-const nodes = [{ id: '1', name: 'Node 1' }]
+const companies: Array<{ id: string }> = []
+const customers: Array<{ id: string, companyId: string | null }> = [
+  { id: '1', companyId: null }
+]
 
 const resolvers = {
   Query: {
-    nodes: () => {
-      return nodes
+    companies: () => {
+      return companies
+    },
+    customers: () => {
+      return customers
     }
   },
   Mutation: {
-    upsert: (parent: unknown, args: { id: string, name: string }) => {
-      const existingNode = nodes.find(node => node.id === args.id)
-      if (existingNode) {
-        existingNode.name = args.name
-        pubSub.publish('updated', existingNode)
-        return existingNode
-      } else {
-        const newNode = { id: args.id, name: args.name }
-        nodes.push(newNode)
-        pubSub.publish('updated', newNode)
-        return newNode
+    updateCustomerWithNewCompany: (parent: unknown, args: { id: string, companyId?: string | null }) => {
+      const customer = customers.find(c => c.id === args.id)
+
+      if (!customer || args.companyId === undefined) return
+
+      customer.companyId = args.companyId
+
+      if (args.companyId) {
+        if (!companies.find(c => c.id === args.companyId)) {
+          companies.push({ id: args.companyId })
+        }
       }
-    }
-  },
-  Subscription: {
-    updatedNode: {
-      subscribe: () => pubSub.subscribe('updated'),
-      resolve: (node: any) => node
-    }
+
+      console.log({ customers, companies });
+
+      return customer
+    },
   },
 }
 
